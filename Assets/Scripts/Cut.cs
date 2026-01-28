@@ -1,11 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UIElements;
 using static UnityEditor.PlayerSettings;
 
 public class Cut : MonoBehaviour
 {
+    [SerializeField] float power = 200f;
     [SerializeField] Rigidbody rb;
     [SerializeField] MeshFilter cube;
     [SerializeField] MeshCollider collid;
@@ -18,12 +20,13 @@ public class Cut : MonoBehaviour
     Vector3 cutFwd = Vector3.zero;
     Vector3 cutNorm = Vector3.zero;
 
+    List<Vector3> newGoats = new List<Vector3>();
 
     private void OnDrawGizmos()
     {
-        foreach (Vector3 v in alterMesh.vertices) // split into top and bot
+        foreach (var v in newGoats)//Vector3 v in alterMesh.vertices) // split into top and bot
         {
-                Gizmos.DrawSphere(v + this.transform.position, 0.02f);
+                Gizmos.DrawSphere(Matrix4x4.Rotate(this.transform.rotation).MultiplyPoint(v) + this.transform.position, 0.02f);
         }
     }
 
@@ -75,13 +78,15 @@ public class Cut : MonoBehaviour
 
         locPos = this.transform.InverseTransformPoint(cutPos);
 
-        Debug.Log("loc: " + locPos);
-        Debug.Log("fwd: " + cutFwd);
+        //Debug.Log("loc: " + locPos);
+        //Debug.Log("fwd: " + cutFwd);
 
         RealCut1(condition);
 
         alterMesh.RecalculateBounds();
         collid.sharedMesh = alterMesh;
+
+        rb.AddForce(condition ? cutNorm * power : -cutNorm * power);
     }
 
     public void RealCut1(bool condition)  // simple heuristic: anything lower than y=0 goes. we create new vertices at that height (all in local for simplicity)\
@@ -136,9 +141,9 @@ public class Cut : MonoBehaviour
             yVal = -(cutNorm.x * v.x + cutNorm.z * v.z + planeD) / cutNorm.y;
             interPoint.y = yVal;
 
-            Debug.Log("this vertex: " + v);
-            Debug.Log("xDist= " + (v.x - locPos.x) + "; zDist= " + (v.z - locPos.z));
-            Debug.Log("yVal= " + yVal);
+            //Debug.Log("this vertex: " + v);
+            //Debug.Log("xDist= " + (v.x - locPos.x) + "; zDist= " + (v.z - locPos.z));
+            //Debug.Log("yVal= " + yVal);
 
             if (condition)
             {
@@ -239,7 +244,7 @@ public class Cut : MonoBehaviour
             float facD = 0.5f;
             float facE = 0.5f;
 
-            Debug.Log("D: " + facD + " E: " + facE);
+            //Debug.Log("D: " + facD + " E: " + facE);
 
             float aVal = -(cutNorm.x * vertA.x + cutNorm.z * vertA.z + planeD) / cutNorm.y;
             float bVal = -(cutNorm.x * vertB.x + cutNorm.z * vertB.z + planeD) / cutNorm.y;
@@ -251,8 +256,8 @@ public class Cut : MonoBehaviour
             Vector3 vertD = Vector3.Lerp(vertA, vertB, facD);  // (placeholder fac = 0.5)
             Vector3 vertE = Vector3.Lerp(vertA, vertC, facE);  // (placeholder fac = 0.5)
 
-            Debug.Log(facD);
-            Debug.Log(facE);
+            //Debug.Log(facD);
+            //Debug.Log(facE);
 
 
             if (!edgeV.Contains(vertD))
@@ -293,27 +298,80 @@ public class Cut : MonoBehaviour
 
         Quaternion q = new Quaternion();
         q.SetFromToRotation(condition ? cutNorm : -cutNorm, Vector3.up); // depends which half we're in
-        Quaternion qCon = new Quaternion(-q.x, -q.y, -q.z, q.w);
 
-        Debug.Log(q);
+        Matrix4x4 rot = Matrix4x4.Rotate(q);
+        List<float> deg = new List<float>(); 
+        List<Vector3> posits = new List<Vector3>();
 
-        List<Vector3> sortV = new List<Vector3>();
+        float sumX = 0f;
+        float sumZ = 0f;
 
-        // sort the vertices of the new plane
+        // set up the vertices of the new plane
         for (int j = 0; j < edgeV.Count; j++)
         {
-            Quaternion p = new Quaternion(edgeV[j].x, edgeV[j].y, edgeV[j].z, 0f);
-            p = q * p * qCon;
-            sortV.Add(new Vector3(p.x, p.y, p.z));
-            Debug.Log("v: " + edgeV[j] + "|| p: " + p);
+            Vector3 temp = rot.MultiplyPoint(edgeV[j]);
+            temp.y = 0;
+            posits.Add(temp);
+
+            sumX += temp.x;
+            sumZ += temp.z;
+
+            //Debug.Log(deg[j]);
+            //Debug.Log(sortV[j]);
+        }
+
+        sumX /= edgeV.Count;
+        sumZ /= edgeV.Count;
+
+        for (int j = 0; j < edgeV.Count; j++)
+        {
+            Vector3 temp = posits[j];
+            temp.x = temp.x + sumX;
+            temp.z = temp.z + sumZ;
+
+            temp = temp.normalized;
+            deg.Add(Mathf.Rad2Deg * Mathf.Atan2(temp.z, temp.x));
+        }
+
+        // sort the vertices of the new plane
+        for (int j = 0; j < edgeV.Count - 1; j++)
+        {
+            for (int k = j; k < edgeV.Count; k++)
+            {
+                if (deg[j] > deg[k])
+                {
+                    float tempo = deg[j];
+                    deg[j] = deg[k];
+                    deg[k] = tempo;
+
+                    Vector3 temp = edgeV[j];
+                    edgeV[j] = edgeV[k];
+                    edgeV[k] = temp;
+                }
+            }
+            newV.Add(edgeV[j]);
+        }
+        newV.Add(edgeV[edgeV.Count - 1]);
+
+        newGoats = edgeV;
+
+        int current = i;
+
+        Debug.Log("STOP THE COUNT: " + edgeV.Count);
+        for (int j = 1; j < edgeV.Count - 1; j++)
+        {
+            newTri.Add(current);
+            newTri.Add(current + j);
+            newTri.Add(current + j + 1);
+
+            Debug.Log("triangle! -- " + j);
+
+            //Debug.Log("the last: " + (current + j + 1) + " out of: " + (newV.Count - 1));
         }
 
 
 
-
-
-
-        //Debug.Log(newTri.Count);
+        Debug.Log("TRI COUNT: " + newTri.Count);
         //Debug.Log(newV.ToArray().Length);
 
         List<Vector2> uvs = new List<Vector2>();
