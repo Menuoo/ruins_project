@@ -21,13 +21,10 @@ public class Cut : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        /*foreach (Vector3 v in alterMesh.vertices) // split into top and bot
+        foreach (Vector3 v in alterMesh.vertices) // split into top and bot
         {
-            if (v.y > 0)
-            {
-                //Gizmos.DrawSphere(v + this.transform.position, 0.1f);
-            }
-        }*/
+                Gizmos.DrawSphere(v + this.transform.position, 0.02f);
+        }
     }
 
 
@@ -235,23 +232,36 @@ public class Cut : MonoBehaviour
             int d = -1; // vert between A and B
             int e = -1; // vert between A and C
 
+
             // INTERPOLATION (HARD) (UNFINISHED)
             float yVal = -(cutNorm.x * vertA.x + cutNorm.z * vertA.z + planeD) / cutNorm.y;
 
             float facD = 0.5f;
             float facE = 0.5f;
 
-
             Debug.Log("D: " + facD + " E: " + facE);
 
-            Vector3 vertD = Vector3.Lerp(vertA, vertB, facD);  // NOT FINAL (placeholder = 0.5)
-            Vector3 vertE = Vector3.Lerp(vertA, vertC, facE);  // NOT FINAL (placeholder = 0.5)
+            float aVal = -(cutNorm.x * vertA.x + cutNorm.z * vertA.z + planeD) / cutNorm.y;
+            float bVal = -(cutNorm.x * vertB.x + cutNorm.z * vertB.z + planeD) / cutNorm.y;
+            float cVal = -(cutNorm.x * vertC.x + cutNorm.z * vertC.z + planeD) / cutNorm.y;
 
-            // Debug.Log(vertD);
-            // Debug.Log(vertE);
+            facD = Mathf.Abs(aVal - vertA.y) / (Mathf.Abs(aVal - vertA.y) + Mathf.Abs(bVal - vertB.y));
+            facE = Mathf.Abs(aVal - vertA.y) / (Mathf.Abs(aVal - vertA.y) + Mathf.Abs(cVal - vertC.y));
+
+            Vector3 vertD = Vector3.Lerp(vertA, vertB, facD);  // (placeholder fac = 0.5)
+            Vector3 vertE = Vector3.Lerp(vertA, vertC, facE);  // (placeholder fac = 0.5)
+
+            Debug.Log(facD);
+            Debug.Log(facE);
+
+
+            if (!edgeV.Contains(vertD))
+                edgeV.Add(vertD);
+            if (!edgeV.Contains(vertE))
+                edgeV.Add(vertE);
+
 
             // choose between the 2 cases, based on whether single vertex is [TOP] or [BOTTOM]
-
             if (topV.Contains(a))
             {
                 newTri.Add(i++);
@@ -261,8 +271,6 @@ public class Cut : MonoBehaviour
                 newV.Add(vertA);
                 newV.Add(vertD);
                 newV.Add(vertE);
-
-                //Debug.Log(vertA);
             }
             else
             {
@@ -282,9 +290,31 @@ public class Cut : MonoBehaviour
             }
         }
 
+
+        Quaternion q = new Quaternion();
+        q.SetFromToRotation(condition ? cutNorm : -cutNorm, Vector3.up); // depends which half we're in
+        Quaternion qCon = new Quaternion(-q.x, -q.y, -q.z, q.w);
+
+        Debug.Log(q);
+
+        List<Vector3> sortV = new List<Vector3>();
+
+        // sort the vertices of the new plane
+        for (int j = 0; j < edgeV.Count; j++)
+        {
+            Quaternion p = new Quaternion(edgeV[j].x, edgeV[j].y, edgeV[j].z, 0f);
+            p = q * p * qCon;
+            sortV.Add(new Vector3(p.x, p.y, p.z));
+            Debug.Log("v: " + edgeV[j] + "|| p: " + p);
+        }
+
+
+
+
+
+
         //Debug.Log(newTri.Count);
         //Debug.Log(newV.ToArray().Length);
-
 
         List<Vector2> uvs = new List<Vector2>();
 
