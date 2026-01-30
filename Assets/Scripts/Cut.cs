@@ -12,6 +12,8 @@ public class Cut : MonoBehaviour
     [SerializeField] MeshFilter cube;
     [SerializeField] MeshCollider collid;
 
+    int lastId = -1;
+
     Mesh alterMesh;
 
     Vector3 cutPos = Vector3.zero;
@@ -24,9 +26,12 @@ public class Cut : MonoBehaviour
 
     private void OnDrawGizmos()
     {
+        int i = 0;
         foreach (var v in newGoats)//Vector3 v in alterMesh.vertices) // split into top and bot
         {
-                Gizmos.DrawSphere(Matrix4x4.Rotate(this.transform.rotation).MultiplyPoint(v) + this.transform.position, 0.02f);
+            Gizmos.color = Color.HSVToRGB(i * 1.0f / newGoats.Count, 1f, 1f);
+            Gizmos.DrawSphere(Matrix4x4.Rotate(this.transform.rotation).MultiplyPoint(v) + this.transform.position, 0.02f);
+            i++;
         }
     }
 
@@ -70,8 +75,14 @@ public class Cut : MonoBehaviour
     }
 
 
-    public void PerformCut(bool condition, Vector3 pos, Vector3 fwd, Vector3 up)
+    public void PerformCut(bool condition, Vector3 pos, Vector3 fwd, Vector3 up, int newId)
     {
+        if (newId == lastId)
+        {
+            return;
+        }
+        lastId = newId;
+
         cutPos = pos;
         cutFwd = fwd;
         cutNorm = up;
@@ -96,7 +107,7 @@ public class Cut : MonoBehaviour
         if (condition)
         {
             Cut newCutObj = Instantiate(this, this.transform.position, this.transform.rotation);
-            newCutObj.PerformCut(false, cutPos, cutFwd, cutNorm);
+            newCutObj.PerformCut(false, cutPos, cutFwd, cutNorm, lastId);
         }
         else
         {
@@ -357,14 +368,14 @@ public class Cut : MonoBehaviour
 
         int current = i;
 
-        Debug.Log("STOP THE COUNT: " + edgeV.Count);
+        //Debug.Log("STOP THE COUNT: " + edgeV.Count);
         for (int j = 1; j < edgeV.Count - 1; j++)
         {
             newTri.Add(current);
             newTri.Add(current + j);
             newTri.Add(current + j + 1);
 
-            Debug.Log("triangle! -- " + j);
+            Debug.Log("triangle! -- " + current + "," + (current + j + 1) + "," + (current + j + 1));
 
             //Debug.Log("the last: " + (current + j + 1) + " out of: " + (newV.Count - 1));
         }

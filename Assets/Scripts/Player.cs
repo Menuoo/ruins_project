@@ -87,6 +87,7 @@ public class Player : MonoBehaviour
     void HandleCut()
     {
         plane.enabled = true;
+        plane.GetComponent<Cutter>().id += 1;
         Invoke("HandleOff", 0.1f);
     }
 

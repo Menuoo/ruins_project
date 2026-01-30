@@ -7,6 +7,7 @@ public class Cutter : MonoBehaviour
     public LayerMask cuttables;
     public Player player;
     public BoxCollider collid;
+    public int id = 0;
 
     private void OnTriggerEnter(Collider other)
     {
@@ -14,17 +15,10 @@ public class Cutter : MonoBehaviour
         Vector3 up = player.CutNormal();
         Vector3 pos = player.CutPosition();
 
-        //RaycastHit hit;
-
-        //Vector3 dir = other.transform.position - pos;
-
-        if (true)//Physics.Raycast(pos, vec, out hit, 5f, cuttables))
+        if (collid.enabled)
         {
-            //pos = hit.point;
-
-            other.gameObject.GetComponent<Cut>().PerformCut(true, pos, fwd, up);
+            //collid.enabled = false;
+            other.gameObject.GetComponent<Cut>().PerformCut(true, pos, fwd, up, id);
         }
-
-        collid.enabled = false;
     }
 }
